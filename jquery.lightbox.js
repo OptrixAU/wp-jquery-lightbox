@@ -73,9 +73,10 @@
             $('#overlay').remove();
             $('#lightbox').remove();         
             opts.inprogress = false;
+	    opts.video = false;
 			opts.auto = -1;
 			var txt = opts.strings;
-            var outerImage = '<div id="outerImageContainer"><div id="imageContainer"><img id="lightboxImage"><div id="hoverNav"><a href="javascript://" title="' + txt.prevLinkTitle + '" id="prevLink"></a><a href="javascript://" id="nextLink" title="' + txt.nextLinkTitle + '"></a></div><div id="jqlb_loading"><a href="javascript://" id="loadingLink"><div id="jqlb_spinner"></div></a></div></div></div>';
+            var outerImage = '<div id="outerImageContainer"><div id="imageContainer"><video id="lightboxVideo" style="display: none; width: 100%"></video><img id="lightboxImage"><div id="hoverNav"><a href="javascript://" title="' + txt.prevLinkTitle + '" id="prevLink"></a><a href="javascript://" id="nextLink" title="' + txt.nextLinkTitle + '"></a></div><div id="jqlb_loading"><a href="javascript://" id="loadingLink"><div id="jqlb_spinner"></div></a></div></div></div>';
             var imageData = '<div id="imageDataContainer" class="clearfix"><div id="imageData"><div id="imageDetails"><span id="titleAndCaption"></span><div id="controls"><span id="numberDisplay"></span> <a id="playPause" href="#"></a> <span id="downloadLink"></span></div></div><div id="bottomNav">';
             imageData += '<a href="javascript://" id="bottomNavClose" title="' + txt.closeTitle + '"><div id="jqlb_closelabel"></div></a></div></div></div>';
             var string;
@@ -206,6 +207,10 @@
             return $('#lightbox').css({ top: newTop + 'px', left: newLeft + 'px' });
         };
         function changeImage(imageNum) {
+	    if (opts.video == true)
+	    {
+	    $('#lightboxVideo')[0].pause();
+	    }
             if (opts.inprogress != false) {
 				return;
 			}
@@ -214,32 +219,57 @@
 			// hide elements during transition
 			$('#jqlb_loading').show();
 			$('#lightboxImage').hide();
+			$('#lightboxVideo').hide();
 			$('#hoverNav').hide();
 			$('#prevLink').hide();
 			$('#nextLink').hide();
 			doChangeImage();            
         };
         function doChangeImage() {
+	    var url = opts.imageArray[opts.activeImage][0];
+	    if ((url.indexOf(".webm") != -1)|| (url.indexOf(".mp4") != -1))
+	    {
+	       $('#lightboxImage').hide();
+	       $('#lightboxVideo').show();
+	       var video = $('#lightboxVideo');
+	       video.html("<source src=\"" + url + "\" type=\"video/webm\"/>");
+	       video[0].load();
+	       video[0].play();
+	       opts.video = true;
+	       doScale();
+	       return;
+	    }
+	    opts.video = false;
             opts.imgPreloader = new Image();
             opts.imgPreloader.onload = function () {
                 $('#lightboxImage').attr('src', opts.imageArray[opts.activeImage][0]);
                 updateDetails(); 
 				doScale();  // once image is preloaded, resize image container
-                preloadNeighborImages();				
+                preloadNeighborImages();		
             };
             opts.imgPreloader.src = opts.imageArray[opts.activeImage][0];
         };
         function doScale() {
-            if (!opts.imgPreloader) {
-                return;
-            }				
-            var newWidth = opts.imgPreloader.width;
-            var newHeight = opts.imgPreloader.height;
-            var pageSize = getPageSize();  
+	    
+	    var pageSize = getPageSize();  
 			var noScrollWidth = (pageSize.viewportWidth < pageSize.pageWidth) ? pageSize.pageWidth : pageSize.viewportWidth; //if viewport is smaller than page, use page width.
 			$("#overlay").css({ width: noScrollWidth + 'px', height: pageSize.pageHeight + 'px' });  
             var maxHeight = (pageSize.viewportHeight) - ($("#imageDataContainer").outerHeight(true) + (2 * opts.borderSize));
-            var maxWidth = (pageSize.viewportWidth) - (2*opts.borderSize);			
+            var maxWidth = (pageSize.viewportWidth) - (2*opts.borderSize);
+	    var newWidth = 0;
+	    var newHeight = 0;
+	    if (opts.video == false) {
+            if (!opts.imgPreloader) {
+                return;
+            }				
+               var newWidth = opts.imgPreloader.width;
+               var newHeight = opts.imgPreloader.height;
+	    }
+	    else
+	    {
+	       var newWidth = maxWidth * 0.95;
+	       var newHeight = newWidth * (9/16);
+	    }			
 			if(opts.fitToScreen){
 				var displayHeight = maxHeight-opts.marginSize;	
 				var displayWidth = maxWidth-opts.marginSize;									
@@ -283,6 +313,8 @@
         function showImage(){                
             $('#jqlb_loading').hide();
             showDetails();
+	    if (opts.video == false)
+	    {
 			if(opts.resizeSpeed > 0){
                 $('#lightboxImage').fadeIn("fast", function(){
 					onImageVisible();
@@ -291,6 +323,11 @@
                 $('#lightboxImage').show();
 				onImageVisible();
             }
+	    }
+	    else
+	    {
+	       $('#lightboxVideo').show();
+	    }
             opts.inprogress = false;
         };
 		function showDetails(){			
@@ -402,7 +439,8 @@
 			clearTimeout(opts.auto);
 			opts.auto = -1;
             $('#lightbox').hide();
-            $('#overlay').fadeOut();         
+            $('#overlay').fadeOut();
+	    $('#lightboxVideo')[0].pause();
         };
         function keyboardAction(e) {
             var o = e.data.opts;
